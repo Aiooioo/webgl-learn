@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Web Scene</title>
+  <link rel="stylesheet" href="http://localhost/jsapi/4.4/esri/css/main.css">
+  <style>
+    html,
+    body,
+    #viewDiv {
+      padding: 0;
+      margin: 0;
+      height: 100%;
+      width: 100%;
+    }
+  </style>
+  <script type="text/javascript" src="http://localhost/jsapi/4.4/init.js"></script>
+  <script>
+    require([
+      "esri/Map",
+      "esri/views/SceneView",
+      "dojo/domReady!"
+    ], function (Map, SceneView) {
+      // Code to create the map and view will go here
+      var map = new Map({
+        basemap: "streets",
+        ground: "world-elevation"
+      });
+      var view = new SceneView({
+        container: "viewDiv",  // Reference to the DOM node that will contain the view
+        map: map,  // References the map object created in step 3
+        scale: 50000000,          // Sets the initial scale to 1:50,000,000
+        center: [-101.17, 21.78]  // Sets the center point of view with lon/lat
+      });
+    });
+  </script>
+</head>
+
+<body>
+  <div id="viewDiv"></div>
+</body>
+
+</html>
