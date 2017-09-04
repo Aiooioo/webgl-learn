@@ -1,0 +1,200 @@
+<!doctype html>
+<html>
+	<head>
+		<title>World</title>
+        <meta http-equiv="Content-Type" content="text/html" />
+        <meta name="charset" content="utf-8"/>
+        <style type="text/css">
+            html,body,div{margin:0;padding:0}
+        </style>
+        <script id="shader-vs" type="x-shader/x-vertex">
+            attribute vec3 aPosition;
+
+            uniform mat4 uModelView;
+            uniform mat4 uProj;
+
+            void main()
+            {
+                gl_Position = uProj * uModelView * vec4(aPosition,1.0);
+            }
+        </script>
+        <script id="shader-fs" type="x-shader/x-fragment">
+            void main()
+            {
+                gl_FragColor = vec4(0.5,0.5,0,1.0);
+            }
+        </script>
+		<script type="text/javascript" src="http://localhost/jsapi/3.19/init.js"></script>
+        <script type="text/javascript">
+            var canvas = null;
+            var gl = null;
+            var shaderProgram = null;
+            var aPositionLocation;
+            var uModelViewLocation;
+            var uProjLocation;
+
+            var vertexPositionBuffer = null;
+			var mvMatrix = null;
+            var projMatrix = null;
+            var mvMatrixStack = [];
+
+            function mvPushMatrix(){
+                var array = [];
+                for(i=0;i<mvMatrix.length;i++){
+                    array.push(mvMatrix[i]);
+                }
+                var matrix = new Float32Array(array);
+                mvMatrixStack.push(matrix);
+            }
+
+            function mvPopMatrix(){
+                if(mvMatrixStack.length==0){
+                    throw "Invalid PopMatrix";
+                }
+                mvMatrix = mvMatrixStack.pop();
+            }
+
+            function initWebGL(canvas){
+                try{
+                    gl = canvas.getContext("experimental-webgl",{antialias:true});
+                }
+                catch(e){
+                    alert("浏览器不支持WebGL!");
+                }
+
+                if(!gl)
+                    alert("浏览器不支持WebGL!");
+            }
+
+            function getShader(gl,id){
+                var shaderScript = document.getElementById(id);
+                if(!shaderScript)
+                    return null;
+
+                var shader = null;
+                if(shaderScript.type=="x-shader/x-vertex"){
+                    shader = gl.createShader(gl.VERTEX_SHADER);
+                }
+                else if(shaderScript.type=="x-shader/x-fragment"){
+                    shader = gl.createShader(gl.FRAGMENT_SHADER);
+                }
+                else{
+                    return null;
+                }
+
+                gl.shaderSource(shader,shaderScript.text);
+                gl.compileShader(shader);
+
+                if(!gl.getShaderParameter(shader,gl.COMPILE_STATUS)){
+                    alert(gl.getShaderInfoLog(shader));
+                    gl.deleteShader(shader);
+                    return null;
+                }
+
+                return shader;
+            }
+
+            function initShaders(){
+                var vertexShader = getShader(gl,"shader-vs");
+                var fragmentShader = getShader(gl,"shader-fs");
+
+                shaderProgram = gl.createProgram();
+                gl.attachShader(shaderProgram,vertexShader);
+                gl.attachShader(shaderProgram,fragmentShader);
+                gl.linkProgram(shaderProgram);
+
+                if(!gl.getProgramParameter(shaderProgram,gl.LINK_STATUS)){
+                    alert("Could not link program");
+                    gl.deleteProgram(shaderProgram);
+                    gl.deleteShader(vertexShader);
+                    gl.deleteShader(fragmentShader);
+                    return;
+                }
+
+                gl.useProgram(shaderProgram);
+
+                aPositionLocation = gl.getAttribLocation(shaderProgram,"aPosition");
+                gl.enableVertexAttribArray(aPositionLocation);
+
+                uModelViewLocation = gl.getUniformLocation(shaderProgram,"uModelView");
+                uProjLocation = gl.getUniformLocation(shaderProgram,"uProj");
+            }
+
+            function initBuffer(){
+                vertexPositionBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER,vertexPositionBuffer);
+                var vertices = [ 0.0,  1.0,  -1.0,
+                                -1.0, -1.0,  -1.0,
+                                 1.0, -1.0,  -1.0];
+                gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(vertices),gl.STATIC_DRAW);
+            }
+			
+			function getPerspectiveMatrix(fov,aspect,near,far){
+                var a = 1.0/Math.tan(fov / 2 * Math.PI / 180);
+                var b = far/(far-near);
+                var c = -near*far/(far-near);
+                
+                var perspectiveMatrix = new Float32Array([
+                    a/aspect, 0, 0, 0,
+                    0, a, 0, 0,
+                    0, 0, b, c,
+                    0, 0, 1, 0
+                ]);
+
+                return perspectiveMatrix;
+            }
+
+            function drawScene(){
+                var width = dojo.style(canvas,"width");
+                var height = dojo.style(canvas,"height");
+                gl.viewport(0,0,width,height);
+                gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+                projMatrix = getPerspectiveMatrix(90,width/height,1.0,100.0);
+                mvMatrix = new Float32Array([1.0,0.0,0.0,0.0,
+                                             0.0,1.0,0.0,0.0,
+                                             0.0,0.0,1.0,0.0,
+                                             0.0,0.0,0.0,1.0]);
+                mvPushMatrix();
+                    gl.bindBuffer(gl.ARRAY_BUFFER,vertexPositionBuffer);
+                    gl.vertexAttribPointer(aPositionLocation,3,gl.FLOAT,false,0,0);
+                    gl.uniformMatrix4fv(uModelViewLocation,false,mvMatrix);
+                    gl.uniformMatrix4fv(uProjLocation,false,projMatrix);
+                    gl.drawArrays(gl.TRIANGLES,0,3);
+                mvPopMatrix();
+            }            
+			
+			function initRequestAnimationFrame(){
+				window.requestAnimationFrame = window.requestAnimationFrame
+										|| window.mozRequestAnimationFrame
+										|| window.webkitRequestAnimationFrame
+										|| window.msRequestAnimationFrame
+										|| window.oRequestAnimationFrame
+										|| function(callback) {
+										setTimeout(callback, 1000 / 60);
+										};
+			}
+			
+			function tick() {				
+                window.requestAnimationFrame(tick);
+                drawScene();
+            }
+
+            function startWebGL(){
+                canvas = document.getElementById("iCanvas");
+                initWebGL(canvas);
+                initShaders();
+                initBuffer();
+
+                gl.clearColor(0.0,0.0,1.0,1.0);
+                gl.enable(gl.DEPTH_TEST);
+				//gl.clearDepth(1.0);
+                //gl.depthFunc(gl.LEQUAL);
+				initRequestAnimationFrame();
+                tick();
+            }
+        </script>
+	</head>
+	<body onload="startWebGL();">
+		<canvas id="iCanvas" style="border: 1px solid #000;width:800px;height: 600px;"></canvas>
+	</body>
+</html>
